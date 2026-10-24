@@ -70,7 +70,7 @@ h2 { margin: 0 0 4px; font-size: 18px; }
   border-bottom: 1px solid var(--line);
 }
 
-.head .topbar { position: static; border-bottom: 0; gap: 14px; }
+.head .topbar { position: static; border-bottom: 0; gap: 14px; padding-bottom: 13px; }
 
 .juntos {
   flex: 0 0 auto;
@@ -121,7 +121,7 @@ h2 { margin: 0 0 4px; font-size: 18px; }
 
 .title { flex: 1; min-width: 0; }
 
-.sub { margin: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub { margin: 6px 0 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .back { color: var(--accent); text-decoration: none; font-size: 16px; white-space: nowrap; }
 
