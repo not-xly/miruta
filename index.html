@@ -44,13 +44,13 @@
         </div>
       </div>
       <nav class="tabs" id="tabs">
-        <button type="button" data-tab="desp">Desplazamientos</button>
-        <button type="button" data-tab="aloj">Alojamientos</button>
-        <button type="button" data-tab="hacer">Hacer</button>
-        <button type="button" data-tab="vida">Gastos</button>
-        <button type="button" data-tab="ideas">Ideas</button>
-        <button type="button" data-tab="notas">Notas</button>
-        <button type="button" data-tab="resumen">Resumen</button>
+        <button type="button" class="row1" data-tab="desp">Moverse</button>
+        <button type="button" class="row1" data-tab="aloj">Dormir</button>
+        <button type="button" class="row1" data-tab="hacer">Hacer</button>
+        <button type="button" class="row2" data-tab="vida">Gastos</button>
+        <button type="button" class="row2" data-tab="ideas">Ideas</button>
+        <button type="button" class="row2" data-tab="notas">Notas</button>
+        <button type="button" class="row2" data-tab="resumen">Resumen</button>
       </nav>
     </header>
 
@@ -58,7 +58,7 @@
 
       <section class="panel" data-panel="desp" hidden>
         <div class="panel-head">
-          <h2>Desplazamientos</h2>
+          <h2>Moverse</h2>
           <span class="sum" id="sumDesp"></span>
           <button type="button" class="btn-new" data-new="transports">+ Añadir</button>
         </div>
@@ -67,7 +67,7 @@
 
       <section class="panel" data-panel="aloj" hidden>
         <div class="panel-head">
-          <h2>Alojamientos</h2>
+          <h2>Dormir</h2>
           <span class="sum" id="sumAloj"></span>
           <button type="button" class="btn-new" data-new="stays">+ Añadir</button>
         </div>
@@ -114,8 +114,8 @@
       <section class="panel" data-panel="resumen" hidden>
         <h2>Resumen de gastos</h2>
         <div class="list">
-          <div class="res"><span>Desplazamientos</span><span id="resDesp"></span></div>
-          <div class="res"><span>Alojamientos</span><span id="resAloj"></span></div>
+          <div class="res"><span>Moverse</span><span id="resDesp"></span></div>
+          <div class="res"><span>Dormir</span><span id="resAloj"></span></div>
           <div class="res"><span>Gastos de vida</span><span id="resVida"></span></div>
           <div class="res total"><span>Total del viaje</span><span id="resTotal"></span></div>
         </div>

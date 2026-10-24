@@ -294,7 +294,7 @@ const SECTIONS = {
     blank: () => ({ text: '', ok: false }),
     required: ['text'],
     row: (x) => `
-      <div class="row-view" data-id="${x.id}">
+      <div class="row-view wrap" data-id="${x.id}">
         ${dotButton(x.ok)}
         <span class="what">${esc(x.text)}</span>
       </div>`,

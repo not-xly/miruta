@@ -6,6 +6,7 @@
   --text: #1c1c1e;
   --muted: #8e8e93;
   --line: #e5e5ea;
+  --tab: #dcdce2;
   --accent: #0a84ff;
   --ok: #34c759;
   --pend: #ff3b30;
@@ -18,6 +19,7 @@
     --field: #2c2c2e;
     --text: #f2f2f7;
     --line: #38383a;
+    --tab: #3a3a3c;
   }
 }
 
@@ -68,7 +70,7 @@ h2 { margin: 0 0 4px; font-size: 18px; }
   border-bottom: 1px solid var(--line);
 }
 
-.head .topbar { position: static; border-bottom: 0; }
+.head .topbar { position: static; border-bottom: 0; gap: 14px; }
 
 .title { flex: 1; min-width: 0; }
 
@@ -90,24 +92,27 @@ h2 { margin: 0 0 4px; font-size: 18px; }
 }
 
 /* Pestañas de apartados: dos filas, sin salirse del ancho del iPhone */
+/* Primera fila: 3 pestañas anchas; segunda fila: 4 más estrechas */
 .tabs {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 6px;
   padding: 0 12px 8px;
 }
 
 .tabs button {
-  flex: 0 0 auto;
-  padding: 6px 9px;
+  min-width: 0;
+  padding: 7px 4px;
   border: 0;
   border-radius: 12px;
-  background: var(--field);
+  background: var(--tab);
   color: var(--text);
-  font-size: 12px;
+  font-size: 13px;
   white-space: nowrap;
 }
+
+.tabs button.row1 { grid-column: span 4; }
+.tabs button.row2 { grid-column: span 3; }
 
 .tabs button.on { background: var(--accent); color: #fff; font-weight: 600; }
 
@@ -215,6 +220,17 @@ h2 { margin: 0 0 4px; font-size: 18px; }
 .list > .row-view:first-child { border-top: 0; }
 
 .row-view.roomy { padding: 12px 0; }
+
+/* Texto que puede ocupar hasta dos líneas (Hacer) */
+.row-view.wrap .what {
+  flex: 1;
+  white-space: normal;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.3;
+}
 
 .row-view .when { flex: 0 0 auto; color: var(--muted); white-space: nowrap; }
 .row-view .what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
