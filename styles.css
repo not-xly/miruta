@@ -233,6 +233,56 @@ label {
   color: var(--pend);
 }
 
+/* Vista de una línea (desplazamientos y alojamientos) */
+.row-view {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.row-view .when { flex: 0 0 auto; color: var(--muted); white-space: nowrap; }
+.row-view .what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-view .cost { flex: 0 0 auto; color: var(--muted); white-space: nowrap; }
+
+.dot-btn { flex: 0 0 auto; padding: 4px; border: 0; background: none; line-height: 0; }
+.dot { display: block; width: 11px; height: 11px; border-radius: 50%; background: var(--pend); }
+.dot.ok { background: var(--ok); }
+
+.btn-done {
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(10, 132, 255, 0.14);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Calendario de rango para alojamientos */
+.cal { display: grid; gap: 6px; }
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.cal-head button { padding: 0 10px; border: 0; background: none; color: var(--accent); font-size: 20px; line-height: 1; }
+
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.cal-grid .wd { color: var(--muted); font-size: 11px; padding: 2px 0; }
+.cal-grid .day { padding: 6px 0; border: 0; border-radius: 8px; background: none; color: var(--text); font-size: 14px; }
+.cal-grid .day.between { border-radius: 0; background: rgba(10, 132, 255, 0.15); }
+.cal-grid .day.start, .cal-grid .day.end { background: var(--accent); color: #fff; }
+
 .totals {
   display: flex;
   justify-content: space-between;

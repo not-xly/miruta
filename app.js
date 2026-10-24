@@ -7,11 +7,14 @@ const CATEGORIES = [
   'Supermercado', 'Telefonía', 'Transporte', 'Visa', 'Otros',
 ].sort(new Intl.Collator('es').compare);
 const IDEA_TYPES = { turismo: 'Turismo', restauracion: 'Restauración' };
+const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const eurFormat = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' });
 
 let db = loadDb();
 let current = null; // viaje abierto
 let ideaFilter = 'todas';
+const openIds = new Set();      // filas de desplazamientos/alojamientos en modo edición
+const calendarMonth = new Map(); // id de alojamiento -> mes mostrado en su calendario ('YYYY-MM')
 
 // ---------- Utilidades ----------
 const $ = (selector) => document.querySelector(selector);
@@ -23,6 +26,13 @@ const shortDate = (iso) => {
   if (!iso) return '—';
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+};
+// "1 jun" (o "1 JUN" si upper): día y tres primeras letras del mes, sin año
+const fmtDayMonth = (iso, upper = false) => {
+  if (!iso) return '—';
+  const [, m, d] = iso.split('-').map(Number);
+  const label = `${d} ${MONTHS_SHORT[m - 1]}`;
+  return upper ? label.toUpperCase() : label;
 };
 const toDayNumber = (iso) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
 const daysBetween = (a, b) => (a && b ? toDayNumber(b) - toDayNumber(a) : null);
@@ -61,9 +71,9 @@ function renderList() {
     : '<p class="empty">Aún no tienes viajes. Pulsa + para crear el primero.</p>';
 }
 
-// ---------- Plantillas de cada fila ----------
+// ---------- Plantillas ----------
 const statusButton = (ok) => `<button type="button" class="status ${ok ? 'ok' : 'pend'}" data-toggle>${ok ? '✓ OK' : '● Pendiente'}</button>`;
-const paintStatus = (btn, ok) => { btn.className = `status ${ok ? 'ok' : 'pend'}`; btn.textContent = ok ? '✓ OK' : '● Pendiente'; };
+const dotButton = (ok) => `<button type="button" class="dot-btn" data-toggle aria-label="${ok ? 'OK' : 'Pendiente'}"><span class="dot${ok ? ' ok' : ''}"></span></button>`;
 const categoryOptions = (selected) => [
   '<option value="">Categoría</option>',
   ...CATEGORIES.map((c) => `<option value="${esc(c)}"${c === selected ? ' selected' : ''}>${esc(c)}</option>`),
@@ -71,66 +81,139 @@ const categoryOptions = (selected) => [
 const ideaTypeOptions = (selected) => Object.entries(IDEA_TYPES)
   .map(([value, label]) => `<option value="${value}"${value === selected ? ' selected' : ''}>${label}</option>`).join('');
 
+// Desplazamientos: vista de una línea y modo edición con inputs
+const transportView = (t) => `
+  <div class="row-view" data-id="${t.id}">
+    <span class="when">${fmtDayMonth(t.date)}</span>
+    <span class="what">${esc(t.from) || '—'} - ${esc(t.to) || '—'}</span>
+    <span class="cost">${t.cost ? eur(t.cost) : ''}</span>
+    ${dotButton(t.ok)}
+  </div>`;
+
+const transportEdit = (t) => `
+  <div class="item" data-id="${t.id}">
+    <div class="line">
+      <input class="date" type="date" data-field="date" value="${esc(t.date)}" aria-label="Día">
+      <input type="text" data-field="from" placeholder="Desde" value="${esc(t.from)}" aria-label="Origen">
+      <span class="arrow">→</span>
+      <input type="text" data-field="to" placeholder="Hasta" value="${esc(t.to)}" aria-label="Destino">
+    </div>
+    <div class="line">
+      <input class="num" type="number" inputmode="decimal" min="0" step="0.01" data-field="cost" placeholder="Coste €" value="${t.cost || ''}" aria-label="Coste en euros">
+      <span class="calc"></span>
+      ${statusButton(t.ok)}
+      <button type="button" class="del" data-del aria-label="Eliminar">✕</button>
+    </div>
+    <button type="button" class="btn-done" data-done>Listo</button>
+  </div>`;
+
+// Alojamientos: vista de una línea y modo edición con calendario de rango
+const stayView = (s) => `
+  <div class="row-view" data-id="${s.id}">
+    <span class="when">${fmtDayMonth(s.checkin, true)} - ${fmtDayMonth(s.checkout, true)}</span>
+    <span class="what">${esc(s.location) || '—'}</span>
+    ${dotButton(s.ok)}
+  </div>`;
+
+const stayEdit = (s) => `
+  <div class="item" data-id="${s.id}">
+    ${calendarHtml(s)}
+    <input type="text" data-field="location" placeholder="Ubicación (ej. París)" value="${esc(s.location)}" aria-label="Ubicación">
+    <div class="line">
+      <input class="num" type="number" inputmode="decimal" min="0" step="0.01" data-field="total" placeholder="Total €" value="${s.total || ''}" aria-label="Total en euros">
+      <span class="calc"></span>
+      ${statusButton(s.ok)}
+      <button type="button" class="del" data-del aria-label="Eliminar">✕</button>
+    </div>
+    <button type="button" class="btn-done" data-done>Listo</button>
+  </div>`;
+
+// Calendario de rango: primer toque = entrada, segundo toque = salida
+function shownMonth(s) {
+  if (calendarMonth.has(s.id)) return calendarMonth.get(s.id);
+  if (s.checkin) return s.checkin.slice(0, 7);
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function shiftMonth(ym, delta) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function calendarHtml(s) {
+  const ym = shownMonth(s);
+  const [y, m] = ym.split('-').map(Number);
+  const offset = (new Date(y, m - 1, 1).getDay() + 6) % 7; // semana empieza en lunes
+  const days = new Date(y, m, 0).getDate();
+  const cells = Array.from({ length: offset }, () => '<span></span>');
+  for (let d = 1; d <= days; d++) {
+    const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const classes = ['day'];
+    if (iso === s.checkin) classes.push('start');
+    if (iso === s.checkout) classes.push('end');
+    if (s.checkin && s.checkout && iso > s.checkin && iso < s.checkout) classes.push('between');
+    cells.push(`<button type="button" class="${classes.join(' ')}" data-day="${iso}">${d}</button>`);
+  }
+  const title = new Date(y, m - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+  return `
+    <div class="cal">
+      <div class="cal-head">
+        <button type="button" data-nav="-1" aria-label="Mes anterior">‹</button>
+        <span>${title}</span>
+        <button type="button" data-nav="1" aria-label="Mes siguiente">›</button>
+      </div>
+      <div class="cal-grid">
+        ${['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => `<span class="wd">${d}</span>`).join('')}
+        ${cells.join('')}
+      </div>
+    </div>`;
+}
+
+function pickDay(s, iso) {
+  if (!s.checkin || s.checkout || iso <= s.checkin) {
+    s.checkin = iso;
+    s.checkout = '';
+  } else {
+    s.checkout = iso;
+  }
+}
+
+const todoRow = (x) => `
+  <div class="item" data-id="${x.id}">
+    <div class="line">
+      <input type="text" data-field="text" placeholder="Acción (ej. Reservar hotel en Múnich)" value="${esc(x.text)}" aria-label="Pendiente">
+      <button type="button" class="del" data-del aria-label="Eliminar">✕</button>
+    </div>
+  </div>`;
+
+const expenseRow = (x) => `
+  <div class="item" data-id="${x.id}">
+    <div class="line">
+      <input class="day" type="number" inputmode="numeric" min="1" step="1" data-field="day" value="${x.day}" aria-label="Día del viaje">
+      <input class="num" type="number" inputmode="decimal" min="0" step="0.01" data-field="amount" placeholder="€" value="${x.amount || ''}" aria-label="Importe en euros">
+      <select data-field="category" aria-label="Categoría">${categoryOptions(x.category)}</select>
+      <button type="button" class="del" data-del aria-label="Eliminar">✕</button>
+    </div>
+    <input type="text" data-field="note" placeholder="Explicación (ej. bicicleta París)" value="${esc(x.note)}" aria-label="Explicación">
+  </div>`;
+
+const ideaRow = (x) => `
+  <div class="item" data-id="${x.id}">
+    <div class="line">
+      <input type="text" data-field="text" placeholder="Idea (ej. Museo de las Tortugas)" value="${esc(x.text)}" aria-label="Idea">
+      <select class="type" data-field="type" aria-label="Tipo">${ideaTypeOptions(x.type)}</select>
+      <button type="button" class="del" data-del aria-label="Eliminar">✕</button>
+    </div>
+  </div>`;
+
 const rows = {
-  transports: (t) => `
-    <div class="item" data-id="${t.id}">
-      <div class="line">
-        <input class="date" type="date" data-field="date" value="${esc(t.date)}" aria-label="Día">
-        <input type="text" data-field="from" placeholder="Desde" value="${esc(t.from)}" aria-label="Origen">
-        <span class="arrow">→</span>
-        <input type="text" data-field="to" placeholder="Hasta" value="${esc(t.to)}" aria-label="Destino">
-      </div>
-      <div class="line">
-        <input class="num" type="number" inputmode="decimal" min="0" step="0.01" data-field="cost" placeholder="Coste €" value="${t.cost || ''}" aria-label="Coste en euros">
-        <span class="calc"></span>
-        ${statusButton(t.ok)}
-        <button type="button" class="del" data-del aria-label="Eliminar">✕</button>
-      </div>
-    </div>`,
-
-  stays: (s) => `
-    <div class="item" data-id="${s.id}">
-      <div class="line">
-        <input class="date" type="date" data-field="checkin" value="${esc(s.checkin)}" aria-label="Entrada">
-        <span class="arrow">→</span>
-        <input class="date" type="date" data-field="checkout" value="${esc(s.checkout)}" aria-label="Salida">
-      </div>
-      <input type="text" data-field="location" placeholder="Ubicación (ej. París)" value="${esc(s.location)}" aria-label="Ubicación">
-      <div class="line">
-        <input class="num" type="number" inputmode="decimal" min="0" step="0.01" data-field="total" placeholder="Total €" value="${s.total || ''}" aria-label="Total en euros">
-        <span class="calc"></span>
-        ${statusButton(s.ok)}
-        <button type="button" class="del" data-del aria-label="Eliminar">✕</button>
-      </div>
-    </div>`,
-
-  todos: (x) => `
-    <div class="item" data-id="${x.id}">
-      <div class="line">
-        <input type="text" data-field="text" placeholder="Acción (ej. Reservar hotel en Múnich)" value="${esc(x.text)}" aria-label="Pendiente">
-        <button type="button" class="del" data-del aria-label="Eliminar">✕</button>
-      </div>
-    </div>`,
-
-  expenses: (x) => `
-    <div class="item" data-id="${x.id}">
-      <div class="line">
-        <input class="day" type="number" inputmode="numeric" min="1" step="1" data-field="day" value="${x.day}" aria-label="Día del viaje">
-        <input class="num" type="number" inputmode="decimal" min="0" step="0.01" data-field="amount" placeholder="€" value="${x.amount || ''}" aria-label="Importe en euros">
-        <select data-field="category" aria-label="Categoría">${categoryOptions(x.category)}</select>
-        <button type="button" class="del" data-del aria-label="Eliminar">✕</button>
-      </div>
-      <input type="text" data-field="note" placeholder="Explicación (ej. bicicleta París)" value="${esc(x.note)}" aria-label="Explicación">
-    </div>`,
-
-  ideas: (x) => `
-    <div class="item" data-id="${x.id}">
-      <div class="line">
-        <input type="text" data-field="text" placeholder="Idea (ej. Museo de las Tortugas)" value="${esc(x.text)}" aria-label="Idea">
-        <select class="type" data-field="type" aria-label="Tipo">${ideaTypeOptions(x.type)}</select>
-        <button type="button" class="del" data-del aria-label="Eliminar">✕</button>
-      </div>
-    </div>`,
+  transports: (t) => (openIds.has(t.id) ? transportEdit(t) : transportView(t)),
+  stays: (s) => (openIds.has(s.id) ? stayEdit(s) : stayView(s)),
+  todos: todoRow,
+  expenses: expenseRow,
+  ideas: ideaRow,
 };
 
 function paint(selector, items, rowFn, emptyText) {
@@ -167,11 +250,12 @@ function updateTotals() {
   const diff = daysBetween(current.start, current.end);
   $('#fHint').textContent = diff === null ? 'Sin fechas' : diff < 0 ? '⚠ Regreso antes de inicio' : `${diff + 1} días · ${diff} noches`;
 
+  // Cálculo de noches solo visible mientras el alojamiento está en edición
   current.stays.forEach((s) => {
-    const row = $(`#listAloj [data-id="${s.id}"]`);
-    if (!row) return;
+    const calc = $(`#listAloj [data-id="${s.id}"] .calc`);
+    if (!calc) return;
     const nights = nightsBetween(s.checkin, s.checkout);
-    row.querySelector('.calc').textContent = nights
+    calc.textContent = nights
       ? `${nights} ${nights === 1 ? 'noche' : 'noches'} · ${eur(num(s.total) / nights)} la noche`
       : '— noches';
   });
@@ -184,6 +268,8 @@ function paintFilters() {
 
 function openTrip(trip) {
   current = trip;
+  openIds.clear();
+  calendarMonth.clear();
   $('#listView').hidden = true;
   $('#tripView').hidden = false;
   $('#tripTitle').textContent = trip.name || 'Sin nombre';
@@ -234,17 +320,34 @@ function bindList(selector, key) {
   el.addEventListener('click', (e) => {
     const item = findItem(e.target, key);
     if (!item) return;
-    if (e.target.closest('[data-del]')) {
+    const target = e.target;
+
+    if (target.closest('[data-del]')) {
       current[key] = current[key].filter((x) => x !== item);
+      openIds.delete(item.id);
       save();
       renderers[key]();
       updateTotals();
-    }
-    const toggle = e.target.closest('[data-toggle]');
-    if (toggle) {
+    } else if (target.closest('[data-toggle]')) {
       item.ok = !item.ok;
-      paintStatus(toggle, item.ok);
       save();
+      renderers[key]();
+      updateTotals();
+    } else if (target.closest('[data-done]')) {
+      openIds.delete(item.id);
+      renderers[key]();
+      updateTotals();
+    } else if (target.closest('.row-view')) {
+      openIds.add(item.id);
+      renderers[key]();
+      updateTotals();
+    } else if (key === 'stays' && target.closest('[data-nav]')) {
+      calendarMonth.set(item.id, shiftMonth(shownMonth(item), Number(target.closest('[data-nav]').dataset.nav)));
+      renderers.stays();
+    } else if (key === 'stays' && target.closest('[data-day]')) {
+      pickDay(item, target.closest('[data-day]').dataset.day);
+      save();
+      renderers.stays();
       updateTotals();
     }
   });
@@ -312,10 +415,12 @@ document.querySelectorAll('[data-add]').forEach((btn) => btn.addEventListener('c
   const key = btn.dataset.add;
   const item = newItem(key);
   current[key].push(item);
+  if (key === 'transports' || key === 'stays') openIds.add(item.id);
   save();
   renderers[key]();
   updateTotals();
-  $(`[data-id="${item.id}"] [data-field]`)?.focus();
+  // Los desplazamientos y alojamientos empiezan con el calendario/fecha visible; no se enfoca para no abrir el teclado encima
+  if (key !== 'transports' && key !== 'stays') $(`[data-id="${item.id}"] [data-field]`)?.focus();
 }));
 
 $('#ideaFilters').addEventListener('click', (e) => {
