@@ -17,12 +17,19 @@
 </head>
 <body>
 
-  <!-- Pantalla 1: listado de viajes -->
+  <!-- Pantalla 1: listado de viajes (crear, editar, eliminar y ordenar) -->
   <section id="listView" class="view">
     <header class="topbar">
       <h1>MiRuta</h1>
       <button type="button" class="add" id="addTrip" aria-label="Nuevo viaje">+</button>
     </header>
+    <div class="sort-bar">
+      <span class="muted">Ordenar por</span>
+      <div class="seg" id="sortBar">
+        <button type="button" data-sort="start" class="on">Fecha</button>
+        <button type="button" data-sort="name">Nombre</button>
+      </div>
+    </div>
     <main id="tripList" class="trip-list"></main>
   </section>
 
@@ -31,13 +38,15 @@
     <header class="head">
       <div class="topbar">
         <a href="#/" class="back">‹ Viajes</a>
-        <h1 id="tripTitle"></h1>
+        <div class="title">
+          <h1 id="tripTitle"></h1>
+          <p class="sub" id="tripDates"></p>
+        </div>
       </div>
       <nav class="tabs" id="tabs">
-        <button type="button" data-tab="fechas">Fechas</button>
         <button type="button" data-tab="desp">Desplazamientos</button>
         <button type="button" data-tab="aloj">Alojamientos</button>
-        <button type="button" data-tab="pend">Pendientes</button>
+        <button type="button" data-tab="hacer">Hacer</button>
         <button type="button" data-tab="vida">Gastos</button>
         <button type="button" data-tab="ideas">Ideas</button>
         <button type="button" data-tab="notas">Notas</button>
@@ -46,19 +55,6 @@
     </header>
 
     <main class="content">
-
-      <section class="panel" data-panel="fechas">
-        <h2>Fechas</h2>
-        <div class="stack">
-          <input id="fName" type="text" placeholder="Nombre del viaje" maxlength="60" aria-label="Nombre del viaje">
-          <div class="row2">
-            <label>Inicio<input id="fStart" type="date"></label>
-            <label>Regreso<input id="fEnd" type="date"></label>
-          </div>
-          <p class="muted" id="fHint"></p>
-        </div>
-        <button type="button" class="btn-danger" id="deleteTrip">Eliminar viaje</button>
-      </section>
 
       <section class="panel" data-panel="desp" hidden>
         <div class="panel-head">
@@ -78,12 +74,12 @@
         <div class="list" id="listAloj"></div>
       </section>
 
-      <section class="panel" data-panel="pend" hidden>
+      <section class="panel" data-panel="hacer" hidden>
         <div class="panel-head">
-          <h2>Pendientes</h2>
+          <h2>Hacer</h2>
           <button type="button" class="btn-new" data-new="todos">+ Añadir</button>
         </div>
-        <div class="list" id="listPend"></div>
+        <div class="list" id="listHacer"></div>
       </section>
 
       <section class="panel" data-panel="vida" hidden>
@@ -105,6 +101,7 @@
           <button type="button" data-filter="todas" class="on">Todas</button>
           <button type="button" data-filter="turismo">Turismo</button>
           <button type="button" data-filter="restauracion">Restauración</button>
+          <button type="button" data-filter="transporte">Transporte</button>
         </div>
         <div class="list" id="listIdeas"></div>
       </section>
@@ -126,7 +123,7 @@
     </main>
   </section>
 
-  <!-- Ventana de introducción de datos: alta y edición -->
+  <!-- Ventana de introducción de datos: alta y edición de cada elemento -->
   <dialog id="sheetDialog" class="sheet">
     <form id="sheetForm">
       <h2 id="sheetTitle"></h2>
@@ -140,18 +137,16 @@
     </form>
   </dialog>
 
-  <!-- Diálogo: nuevo viaje -->
-  <dialog id="newTripDialog">
-    <form id="newTripForm">
-      <h2>Nuevo viaje</h2>
-      <input id="newTripName" type="text" placeholder="Nombre (ej. Europa noviembre)" maxlength="60" required aria-label="Nombre del viaje">
-      <div class="row2">
-        <label>Inicio<input id="newTripStart" type="date"></label>
-        <label>Regreso<input id="newTripEnd" type="date"></label>
-      </div>
+  <!-- Ventana de viaje: nuevo o editar, con un calendario para las dos fechas -->
+  <dialog id="tripDialog">
+    <form id="tripForm">
+      <h2 id="tripDialogTitle">Nuevo viaje</h2>
+      <input id="tripName" type="text" placeholder="Nombre (ej. Europa noviembre)" maxlength="60" required aria-label="Nombre del viaje">
+      <div id="tripCal"></div>
+      <p class="muted" id="tripRange"></p>
       <div class="dialog-actions">
         <button type="button" class="btn-secondary" id="cancelTrip">Cancelar</button>
-        <button type="submit" class="btn-primary">Crear</button>
+        <button type="submit" class="btn-primary">Guardar</button>
       </div>
     </form>
   </dialog>

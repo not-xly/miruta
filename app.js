@@ -6,16 +6,17 @@ const CATEGORIES = [
   'Atracción turística', 'Compras', 'Lavandería', 'Parking', 'Restaurante',
   'Supermercado', 'Telefonía', 'Transporte', 'Visa', 'Otros',
 ].sort(new Intl.Collator('es').compare);
-const IDEA_TYPES = { turismo: 'Turismo', restauracion: 'Restauración' };
+const IDEA_TYPES = { turismo: 'Turismo', restauracion: 'Restauración', transporte: 'Transporte' };
 const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const eurFormat = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' });
 
 let db = loadDb();
 let current = null;              // viaje abierto
-let activeTab = 'fechas';        // apartado visible
 let ideaFilter = 'todas';
-let sheet = null;                // ventana de introducción abierta: { key, isNew, draft }
-const calendarMonth = new Map(); // id de alojamiento -> mes mostrado en su calendario ('YYYY-MM')
+let listSort = 'start';          // orden del listado de viajes: 'start' o 'name'
+let sheet = null;                // ventana de elemento abierta: { key, isNew, draft }
+let tripDialogState = null;      // ventana de viaje abierta: { editing, range }
+const calendarMonth = new Map(); // clave de calendario -> mes mostrado ('YYYY-MM')
 
 // ---------- Utilidades ----------
 const $ = (selector) => document.querySelector(selector);
@@ -23,17 +24,11 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const eur = (n) => eurFormat.format(n || 0);
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
-const shortDate = (iso) => {
-  if (!iso) return '—';
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-};
-// "1 jun" (o "1 JUN" si upper): día y tres primeras letras del mes, sin año
-const fmtDayMonth = (iso, upper = false) => {
+// "1 jun": día y tres primeras letras del mes en minúsculas, sin año
+const fmtDayMonth = (iso) => {
   if (!iso) return '—';
   const [, m, d] = iso.split('-').map(Number);
-  const label = `${d} ${MONTHS_SHORT[m - 1]}`;
-  return upper ? label.toUpperCase() : label;
+  return `${d} ${MONTHS_SHORT[m - 1]}`;
 };
 const toDayNumber = (iso) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
 const daysBetween = (a, b) => (a && b ? toDayNumber(b) - toDayNumber(a) : null);
@@ -51,31 +46,11 @@ function loadDb() {
 
 const save = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
 
-function createTrip(name, start, end) {
-  const trip = { id: uid(), name, start, end, transports: [], stays: [], todos: [], expenses: [], ideas: [], notes: '' };
-  db.trips.push(trip);
-  save();
-  return trip;
-}
-
-// ---------- Pantalla 1: listado de viajes ----------
-function renderList() {
-  const trips = [...db.trips].sort((a, b) => (a.start || '9999').localeCompare(b.start || '9999') || a.name.localeCompare(b.name, 'es'));
-  $('#tripList').innerHTML = trips.length
-    ? trips.map((t) => {
-      const days = tripDays(t);
-      return `<a class="trip-card" href="#/trip/${t.id}">
-        <strong>${esc(t.name)}</strong>
-        <span class="muted">${shortDate(t.start)} → ${shortDate(t.end)}${days ? ` · ${days} días` : ''}</span>
-      </a>`;
-    }).join('')
-    : '<p class="empty">Aún no tienes viajes. Pulsa + para crear el primero.</p>';
-}
-
-// ---------- Calendario de rango (solo en la ventana de alojamientos) ----------
-function shownMonth(s) {
-  if (calendarMonth.has(s.id)) return calendarMonth.get(s.id);
-  if (s.checkin) return s.checkin.slice(0, 7);
+// ---------- Calendario de rango (viajes y alojamientos) ----------
+// range = { checkin, checkout }; key = clave para recordar el mes que se muestra
+function shownMonth(range, key) {
+  if (calendarMonth.has(key)) return calendarMonth.get(key);
+  if (range.checkin) return range.checkin.slice(0, 7);
   const today = new Date();
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 }
@@ -87,17 +62,17 @@ function shiftMonth(ym, delta) {
 }
 
 // Primer toque = entrada, segundo toque = salida
-function pickDay(s, iso) {
-  if (!s.checkin || s.checkout || iso <= s.checkin) {
-    s.checkin = iso;
-    s.checkout = '';
+function pickDay(range, iso) {
+  if (!range.checkin || range.checkout || iso <= range.checkin) {
+    range.checkin = iso;
+    range.checkout = '';
   } else {
-    s.checkout = iso;
+    range.checkout = iso;
   }
 }
 
-function calendarHtml(s) {
-  const ym = shownMonth(s);
+function calendarHtml(range, key) {
+  const ym = shownMonth(range, key);
   const [y, m] = ym.split('-').map(Number);
   const offset = (new Date(y, m - 1, 1).getDay() + 6) % 7; // la semana empieza en lunes
   const days = new Date(y, m, 0).getDate();
@@ -105,9 +80,9 @@ function calendarHtml(s) {
   for (let d = 1; d <= days; d++) {
     const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const classes = ['day'];
-    if (iso === s.checkin) classes.push('start');
-    if (iso === s.checkout) classes.push('end');
-    if (s.checkin && s.checkout && iso > s.checkin && iso < s.checkout) classes.push('between');
+    if (iso === range.checkin) classes.push('start');
+    if (iso === range.checkout) classes.push('end');
+    if (range.checkin && range.checkout && iso > range.checkin && iso < range.checkout) classes.push('between');
     cells.push(`<button type="button" class="${classes.join(' ')}" data-day="${iso}">${d}</button>`);
   }
   const monthTitle = new Date(y, m - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
@@ -126,8 +101,123 @@ function calendarHtml(s) {
     </div>`;
 }
 
+// ---------- Pantalla 1: listado de viajes ----------
+const byStart = (a, b) => (a.start || '9999').localeCompare(b.start || '9999') || a.name.localeCompare(b.name, 'es');
+const byName = (a, b) => a.name.localeCompare(b.name, 'es');
+
+function tripCardHtml(t) {
+  const days = tripDays(t);
+  return `
+    <div class="trip-card" data-trip="${t.id}">
+      <a class="trip-main" href="#/trip/${t.id}">
+        <strong>${esc(t.name)}</strong>
+        <span class="muted">${fmtDayMonth(t.start)} - ${fmtDayMonth(t.end)}${days ? ` · ${days} días` : ''}</span>
+      </a>
+      <div class="trip-actions">
+        <button type="button" data-edit>Editar</button>
+        <button type="button" class="danger" data-delete>Eliminar</button>
+      </div>
+    </div>`;
+}
+
+function renderList() {
+  const trips = [...db.trips].sort(listSort === 'name' ? byName : byStart);
+  $('#tripList').innerHTML = trips.length
+    ? trips.map(tripCardHtml).join('')
+    : '<p class="empty">Aún no tienes viajes. Pulsa + para crear el primero.</p>';
+  document.querySelectorAll('#sortBar button').forEach((b) => b.classList.toggle('on', b.dataset.sort === listSort));
+}
+
+function createTrip(name, start, end) {
+  const trip = { id: uid(), name, start, end, transports: [], stays: [], todos: [], expenses: [], ideas: [], notes: '' };
+  db.trips.push(trip);
+  save();
+  return trip;
+}
+
+// ---------- Ventana de viaje (nuevo o editar) ----------
+function refreshTripDialog() {
+  const { range } = tripDialogState;
+  $('#tripCal').innerHTML = calendarHtml(range, 'trip');
+  let text = 'Elige la fecha de inicio y la de regreso';
+  if (range.checkin && range.checkout) {
+    const days = daysBetween(range.checkin, range.checkout) + 1;
+    text = `${fmtDayMonth(range.checkin)} - ${fmtDayMonth(range.checkout)} · ${days} días`;
+  } else if (range.checkin) {
+    text = `Inicio: ${fmtDayMonth(range.checkin)}. Elige la fecha de regreso`;
+  }
+  $('#tripRange').textContent = text;
+}
+
+function openTripDialog(trip = null) {
+  tripDialogState = { editing: trip, range: { checkin: trip ? trip.start : '', checkout: trip ? trip.end : '' } };
+  calendarMonth.delete('trip');
+  $('#tripDialogTitle').textContent = trip ? 'Editar viaje' : 'Nuevo viaje';
+  $('#tripName').value = trip ? trip.name : '';
+  refreshTripDialog();
+  $('#tripDialog').showModal();
+}
+
+$('#tripCal').addEventListener('click', (e) => {
+  const { range } = tripDialogState;
+  const day = e.target.closest('[data-day]');
+  const nav = e.target.closest('[data-nav]');
+  if (day) pickDay(range, day.dataset.day);
+  else if (nav) calendarMonth.set('trip', shiftMonth(shownMonth(range, 'trip'), Number(nav.dataset.nav)));
+  else return;
+  refreshTripDialog();
+});
+
+$('#tripForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = $('#tripName').value.trim();
+  const { editing, range } = tripDialogState;
+  if (!name) { $('#tripName').focus(); return; }
+  if (!range.checkin || !range.checkout) {
+    $('#tripRange').textContent = 'Elige también la fecha de regreso';
+    return;
+  }
+  if (editing) {
+    Object.assign(editing, { name, start: range.checkin, end: range.checkout });
+    save();
+    $('#tripDialog').close();
+    renderList();
+  } else {
+    const trip = createTrip(name, range.checkin, range.checkout);
+    $('#tripDialog').close();
+    location.hash = `#/trip/${trip.id}`;
+  }
+});
+
+$('#cancelTrip').addEventListener('click', () => $('#tripDialog').close());
+
+$('#addTrip').addEventListener('click', () => openTripDialog());
+
+$('#sortBar').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-sort]');
+  if (!btn) return;
+  listSort = btn.dataset.sort;
+  renderList();
+});
+
+$('#tripList').addEventListener('click', (e) => {
+  const card = e.target.closest('[data-trip]');
+  if (!card) return;
+  const trip = db.trips.find((t) => t.id === card.dataset.trip);
+  if (!trip) return;
+  if (e.target.closest('[data-edit]')) {
+    openTripDialog(trip);
+  } else if (e.target.closest('[data-delete]')) {
+    if (!confirm(`¿Eliminar "${trip.name}" y todos sus datos? No se puede deshacer.`)) return;
+    db.trips = db.trips.filter((t) => t !== trip);
+    save();
+    renderList();
+  }
+});
+
 // ---------- Plantillas de visualización (una línea, sin inputs) ----------
 const dotButton = (ok) => `<button type="button" class="dot-btn" data-toggle aria-label="${ok ? 'OK' : 'Pendiente'}"><span class="dot${ok ? ' ok' : ''}"></span></button>`;
+
 const stayCalcText = (s) => {
   const nights = nightsBetween(s.checkin, s.checkout);
   return nights
@@ -135,28 +225,25 @@ const stayCalcText = (s) => {
     : '— noches';
 };
 
-// ---------- Plantillas de la ventana de introducción ----------
-const statePicker = (ok) => `
+// ---------- Piezas de la ventana de introducción ----------
+const statePicker = (ok, [yes, no] = ['✓ OK', '● Pendiente']) => `
   <span class="field-label">Estado</span>
   <div class="seg">
-    <button type="button" data-state="ok" class="${ok ? 'on ok' : ''}">✓ OK</button>
-    <button type="button" data-state="pend" class="${ok ? '' : 'on pend'}">● Pendiente</button>
+    <button type="button" data-state="ok" class="${ok ? 'on ok' : ''}">${yes}</button>
+    <button type="button" data-state="pend" class="${ok ? '' : 'on pend'}">${no}</button>
   </div>`;
 
-const categoryOptions = (selected) => [
-  '<option value="">Elige una categoría</option>',
-  ...CATEGORIES.map((c) => `<option value="${esc(c)}"${c === selected ? ' selected' : ''}>${esc(c)}</option>`),
-].join('');
-
-const ideaTypeOptions = (selected) => Object.entries(IDEA_TYPES)
-  .map(([value, label]) => `<option value="${value}"${value === selected ? ' selected' : ''}>${label}</option>`).join('');
+// Botones que muestran todas las opciones a la vez; el valor elegido se guarda en el campo indicado
+const chipPicker = (field, options, selected, layout) => `
+  <div class="chips ${layout}" data-chips="${field}">
+    ${options.map(([value, label]) => `<button type="button" data-val="${esc(value)}" class="${value === selected ? 'on' : ''}">${esc(label)}</button>`).join('')}
+  </div>`;
 
 // ---------- Secciones: cómo se ven (lista) y cómo se introducen (ventana) ----------
 const SECTIONS = {
   transports: {
-    singular: 'Desplazamiento',
+    title: ['Nuevo desplazamiento', 'Editar desplazamiento'],
     list: '#listDesp',
-    sum: '#sumDesp',
     empty: 'Sin desplazamientos todavía. Pulsa + para añadir uno.',
     items: () => current.transports,
     blank: () => ({ date: '', from: '', to: '', cost: 0, ok: false }),
@@ -179,21 +266,20 @@ const SECTIONS = {
   },
 
   stays: {
-    singular: 'Alojamiento',
+    title: ['Nuevo alojamiento', 'Editar alojamiento'],
     list: '#listAloj',
-    sum: '#sumAloj',
     empty: 'Sin alojamientos todavía. Pulsa + para añadir uno.',
     items: () => current.stays,
     blank: () => ({ checkin: '', checkout: '', location: '', total: 0, ok: false }),
     required: [],
     row: (s) => `
       <div class="row-view" data-id="${s.id}">
-        <span class="when">${fmtDayMonth(s.checkin, true)} - ${fmtDayMonth(s.checkout, true)}</span>
+        <span class="when">${fmtDayMonth(s.checkin)} - ${fmtDayMonth(s.checkout)}</span>
         <span class="what">${esc(s.location) || '—'}</span>
         ${dotButton(s.ok)}
       </div>`,
     form: (d) => `
-      <div id="calHost">${calendarHtml(d)}</div>
+      <div id="calHost">${calendarHtml(d, d.id)}</div>
       <label>Ubicación<input type="text" data-f="location" placeholder="París" value="${esc(d.location)}"></label>
       <label>Total (€)<input type="number" inputmode="decimal" min="0" step="0.01" data-f="total" value="${d.total || ''}"></label>
       <p class="muted" id="sheetCalc">${stayCalcText(d)}</p>
@@ -201,30 +287,31 @@ const SECTIONS = {
   },
 
   todos: {
-    singular: 'Pendiente',
-    list: '#listPend',
-    empty: 'Nada pendiente. Pulsa + para añadir algo.',
+    title: ['Nueva tarea', 'Editar tarea'],
+    list: '#listHacer',
+    empty: 'Nada por hacer. Pulsa + para añadir algo.',
     items: () => current.todos,
-    blank: () => ({ text: '' }),
+    blank: () => ({ text: '', ok: false }),
     required: ['text'],
     row: (x) => `
       <div class="row-view" data-id="${x.id}">
+        ${dotButton(x.ok)}
         <span class="what">${esc(x.text)}</span>
       </div>`,
     form: (d) => `
-      <label>Acción<input type="text" data-f="text" placeholder="Reservar hotel en Múnich" value="${esc(d.text)}"></label>`,
+      <label>Qué hay que hacer<input type="text" data-f="text" placeholder="Reservar hotel en Múnich" value="${esc(d.text)}"></label>
+      ${statePicker(d.ok, ['✓ Hecho', '● Pendiente'])}`,
   },
 
   expenses: {
-    singular: 'Gasto',
+    title: ['Nuevo gasto', 'Editar gasto'],
     list: '#listVida',
-    sum: '#sumVida',
     empty: 'Sin gastos todavía. Pulsa + para añadir uno.',
     items: () => [...current.expenses].sort((a, b) => a.day - b.day),
     blank: () => ({ day: Math.max(1, ...current.expenses.map((x) => num(x.day))), amount: 0, category: '', note: '' }),
     required: [],
     row: (x) => `
-      <div class="row-view" data-id="${x.id}">
+      <div class="row-view roomy" data-id="${x.id}">
         <span class="when">Día ${x.day}</span>
         <span class="what">${esc(x.category) || 'Sin categoría'}${x.note ? ` · ${esc(x.note)}` : ''}</span>
         <span class="cost">${eur(x.amount)}</span>
@@ -234,25 +321,27 @@ const SECTIONS = {
         <label>Día del viaje<input type="number" inputmode="numeric" min="1" step="1" data-f="day" value="${d.day}"></label>
         <label>Importe (€)<input type="number" inputmode="decimal" min="0" step="0.01" data-f="amount" value="${d.amount || ''}"></label>
       </div>
-      <label>Categoría<select data-f="category">${categoryOptions(d.category)}</select></label>
+      <span class="field-label">Categoría</span>
+      ${chipPicker('category', CATEGORIES.map((c) => [c, c]), d.category, 'chips-cat')}
       <label>Explicación<input type="text" data-f="note" placeholder="Bicicleta París" value="${esc(d.note)}"></label>`,
   },
 
   ideas: {
-    singular: 'Idea',
+    title: ['Nueva idea', 'Editar idea'],
     list: '#listIdeas',
     empty: 'Sin ideas en esta categoría.',
     items: () => current.ideas.filter((i) => ideaFilter === 'todas' || i.type === ideaFilter),
     blank: () => ({ text: '', type: ideaFilter === 'todas' ? 'turismo' : ideaFilter }),
     required: ['text'],
     row: (x) => `
-      <div class="row-view" data-id="${x.id}">
-        <span class="when">${IDEA_TYPES[x.type] || ''}</span>
+      <div class="row-view stacked" data-id="${x.id}">
         <span class="what">${esc(x.text)}</span>
+        <span class="when">${IDEA_TYPES[x.type] || ''}</span>
       </div>`,
     form: (d) => `
       <label>Idea<input type="text" data-f="text" placeholder="Museo de las Tortugas" value="${esc(d.text)}"></label>
-      <label>Tipo<select data-f="type">${ideaTypeOptions(d.type)}</select></label>`,
+      <span class="field-label">Tipo</span>
+      ${chipPicker('type', Object.entries(IDEA_TYPES), d.type, 'chips-row')}`,
   },
 };
 
@@ -280,14 +369,10 @@ function updateTotals() {
   $('#resAloj').textContent = eur(aloj);
   $('#resVida').textContent = eur(vida);
   $('#resTotal').textContent = eur(desp + aloj + vida);
-
-  const diff = daysBetween(current.start, current.end);
-  $('#fHint').textContent = diff === null ? 'Sin fechas' : diff < 0 ? '⚠ Regreso antes de inicio' : `${diff + 1} días · ${diff} noches`;
 }
 
-// ---------- Pestañas ----------
+// ---------- Pestañas y cabecera del viaje ----------
 function showTab(tab) {
-  activeTab = tab;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
   document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== tab; });
   window.scrollTo(0, 0);
@@ -297,6 +382,12 @@ function paintFilters() {
   document.querySelectorAll('#ideaFilters button').forEach((b) => b.classList.toggle('on', b.dataset.filter === ideaFilter));
 }
 
+function paintTripHeader() {
+  $('#tripTitle').textContent = current.name || 'Sin nombre';
+  const days = tripDays(current);
+  $('#tripDates').textContent = `${fmtDayMonth(current.start)} - ${fmtDayMonth(current.end)}${days ? ` · ${days} días` : ''}`;
+}
+
 // ---------- Apertura de un viaje y pantallas ----------
 function openTrip(trip) {
   current = trip;
@@ -304,15 +395,12 @@ function openTrip(trip) {
   ideaFilter = 'todas';
   $('#listView').hidden = true;
   $('#tripView').hidden = false;
-  $('#tripTitle').textContent = trip.name || 'Sin nombre';
-  $('#fName').value = trip.name;
-  $('#fStart').value = trip.start;
-  $('#fEnd').value = trip.end;
+  paintTripHeader();
   $('#tripNotes').value = trip.notes;
   paintFilters();
   Object.keys(SECTIONS).forEach(renderSection);
   updateTotals();
-  showTab('fechas');
+  showTab('desp');
 }
 
 function showList() {
@@ -330,11 +418,11 @@ function route() {
   showList();
 }
 
-// ---------- Ventana de introducción (alta y edición) ----------
+// ---------- Ventana de elemento (alta y edición) ----------
 function openSheet(key, item, isNew) {
   const cfg = SECTIONS[key];
   sheet = { key, isNew, draft: { ...item } };
-  $('#sheetTitle').textContent = `${isNew ? 'Nuevo' : 'Editar'} ${cfg.singular.toLowerCase()}`;
+  $('#sheetTitle').textContent = cfg.title[isNew ? 0 : 1];
   $('#sheetBody').innerHTML = cfg.form(sheet.draft);
   $('#sheetDelete').hidden = isNew;
   $('#sheetDialog').showModal();
@@ -345,7 +433,7 @@ function closeSheet() {
 }
 
 function refreshCalendar() {
-  $('#calHost').innerHTML = calendarHtml(sheet.draft);
+  $('#calHost').innerHTML = calendarHtml(sheet.draft, sheet.draft.id);
   $('#sheetCalc').textContent = stayCalcText(sheet.draft);
 }
 
@@ -365,18 +453,22 @@ $('#sheetBody').addEventListener('click', (e) => {
   const day = e.target.closest('[data-day]');
   const nav = e.target.closest('[data-nav]');
   const state = e.target.closest('[data-state]');
+  const chip = e.target.closest('[data-val]');
   if (day) {
     pickDay(sheet.draft, day.dataset.day);
     refreshCalendar();
   } else if (nav) {
-    calendarMonth.set(sheet.draft.id, shiftMonth(shownMonth(sheet.draft), Number(nav.dataset.nav)));
+    calendarMonth.set(sheet.draft.id, shiftMonth(shownMonth(sheet.draft, sheet.draft.id), Number(nav.dataset.nav)));
     refreshCalendar();
   } else if (state) {
     sheet.draft.ok = state.dataset.state === 'ok';
     state.parentElement.querySelectorAll('button').forEach((b) => {
-      const active = b === state;
-      b.className = active ? (sheet.draft.ok ? 'on ok' : 'on pend') : '';
+      b.className = b === state ? (sheet.draft.ok ? 'on ok' : 'on pend') : '';
     });
+  } else if (chip) {
+    const group = chip.closest('[data-chips]');
+    sheet.draft[group.dataset.chips] = chip.dataset.val;
+    group.querySelectorAll('[data-val]').forEach((b) => b.classList.toggle('on', b === chip));
   }
 });
 
@@ -384,8 +476,7 @@ $('#sheetForm').addEventListener('submit', (e) => {
   e.preventDefault();
   if (!sheet) return;
   const { key, isNew, draft } = sheet;
-  const cfg = SECTIONS[key];
-  const missing = cfg.required.find((f) => !String(draft[f] ?? '').trim());
+  const missing = SECTIONS[key].required.find((f) => !String(draft[f] ?? '').trim());
   if (missing) {
     $(`#sheetBody [data-f="${missing}"]`).focus();
     return;
@@ -453,49 +544,6 @@ $('#ideaFilters').addEventListener('click', (e) => {
 $('#tripNotes').addEventListener('input', (e) => {
   current.notes = e.target.value;
   save();
-});
-
-// ---------- Fechas del viaje ----------
-$('#fName').addEventListener('input', (e) => {
-  current.name = e.target.value;
-  $('#tripTitle').textContent = e.target.value || 'Sin nombre';
-  save();
-});
-
-$('#fStart').addEventListener('change', (e) => {
-  current.start = e.target.value;
-  save();
-  updateTotals();
-});
-
-$('#fEnd').addEventListener('change', (e) => {
-  current.end = e.target.value;
-  save();
-  updateTotals();
-});
-
-$('#deleteTrip').addEventListener('click', () => {
-  if (!confirm(`¿Eliminar "${current.name}" y todos sus datos? No se puede deshacer.`)) return;
-  db.trips = db.trips.filter((t) => t !== current);
-  save();
-  location.hash = '#/';
-});
-
-// ---------- Listado de viajes: crear ----------
-$('#addTrip').addEventListener('click', () => {
-  $('#newTripForm').reset();
-  $('#newTripDialog').showModal();
-});
-
-$('#cancelTrip').addEventListener('click', () => $('#newTripDialog').close());
-
-$('#newTripForm').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const name = $('#newTripName').value.trim();
-  if (!name) { $('#newTripName').focus(); return; }
-  const trip = createTrip(name, $('#newTripStart').value, $('#newTripEnd').value);
-  $('#newTripDialog').close();
-  location.hash = `#/trip/${trip.id}`;
 });
 
 window.addEventListener('hashchange', route);
