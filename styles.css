@@ -1,0 +1,283 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --field: #f2f2f7;
+  --text: #1c1c1e;
+  --muted: #8e8e93;
+  --line: #e5e5ea;
+  --accent: #0a84ff;
+  --ok: #34c759;
+  --pend: #ff3b30;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --card: #1c1c1e;
+    --field: #2c2c2e;
+    --text: #f2f2f7;
+    --line: #38383a;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body { margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.3 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+}
+
+h1 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+h2 { margin: 0 0 4px; font-size: 18px; }
+
+/* Barra superior fija, con margen para la muesca del iPhone */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(env(safe-area-inset-top) + 8px) 12px 8px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+
+.back { color: var(--accent); text-decoration: none; font-size: 16px; white-space: nowrap; }
+
+.add {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* Listado de viajes */
+.trip-list { padding: 4px 0 16px; }
+
+.trip-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--card);
+  color: inherit;
+  text-decoration: none;
+}
+
+.trip-card strong { font-size: 16px; }
+
+.empty { margin: 0; padding: 40px 20px; text-align: center; color: var(--muted); }
+
+.muted { color: var(--muted); font-size: 13px; }
+
+/* Tarjetas desplegables de cada apartado */
+.content { padding: 2px 0 16px; }
+
+.card {
+  margin: 10px 12px;
+  border-radius: 12px;
+  background: var(--card);
+  overflow: hidden;
+}
+
+.card > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.card > summary::-webkit-details-marker { display: none; }
+
+.card > summary::after {
+  content: "›";
+  margin-left: 4px;
+  color: var(--muted);
+  font-size: 20px;
+  transform: rotate(90deg);
+  transition: transform 0.15s;
+}
+
+.card[open] > summary::after { transform: rotate(-90deg); }
+
+.sum { margin-left: auto; color: var(--accent); font-size: 14px; font-weight: 600; }
+
+.body { display: grid; gap: 8px; padding: 0 12px 12px; }
+
+.item {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+
+.line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+
+.arrow { color: var(--muted); }
+
+.calc { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; line-height: 1.25; }
+
+/* Campos: 16px evita que Safari haga zoom al enfocar */
+input, select, textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+
+input[type="date"] { -webkit-appearance: none; appearance: none; }
+
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+
+.line > input, .line > select { flex: 1 1 0; }
+.line > input.date { flex: 0 0 138px; }
+.line > input.num { flex: 0 0 104px; }
+.line > input.day { flex: 0 0 58px; }
+.line > select.type { flex: 0 0 118px; }
+
+textarea { min-height: 180px; resize: vertical; line-height: 1.4; }
+
+label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.status {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 14px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status.ok { background: var(--ok); }
+.status.pend { background: var(--pend); }
+
+.del {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: var(--pend);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.btn-add {
+  padding: 9px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(10, 132, 255, 0.14);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.btn-primary, .btn-secondary, .btn-danger {
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-secondary { background: var(--field); color: var(--text); }
+.btn-danger {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 14px 12px 4px;
+  background: var(--card);
+  color: var(--pend);
+}
+
+.totals {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  font-weight: 600;
+}
+
+.res {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+
+.res:first-child { border-top: 0; }
+.res.total { font-size: 17px; font-weight: 700; }
+
+/* Filtro de ideas */
+.seg { display: flex; gap: 6px; }
+
+.seg button {
+  flex: 1;
+  padding: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.seg button.on { background: var(--accent); color: #fff; }
+
+/* Diálogo nuevo viaje */
+dialog {
+  width: min(88vw, 360px);
+  padding: 16px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--text);
+}
+
+dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+
+dialog form { display: grid; gap: 10px; }
+
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }

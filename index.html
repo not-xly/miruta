@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="MiRuta">
+  <meta name="format-detection" content="telephone=no">
+  <title>MiRuta</title>
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Pantalla 1: listado de viajes -->
+  <section id="listView" class="view">
+    <header class="topbar">
+      <h1>MiRuta</h1>
+      <button type="button" class="add" id="addTrip" aria-label="Nuevo viaje">+</button>
+    </header>
+    <main id="tripList" class="trip-list"></main>
+  </section>
+
+  <!-- Pantalla 2: detalle de un viaje -->
+  <section id="tripView" class="view" hidden>
+    <header class="topbar">
+      <a href="#/" class="back">‹ Viajes</a>
+      <h1 id="tripTitle"></h1>
+    </header>
+
+    <main class="content">
+
+      <details class="card" open>
+        <summary><span>Fechas</span><span class="sum" id="fHint"></span></summary>
+        <div class="body">
+          <input id="fName" type="text" placeholder="Nombre del viaje" maxlength="60" aria-label="Nombre del viaje">
+          <div class="row2">
+            <label>Inicio<input id="fStart" type="date"></label>
+            <label>Regreso<input id="fEnd" type="date"></label>
+          </div>
+        </div>
+      </details>
+
+      <details class="card" open>
+        <summary><span>Desplazamientos</span><span class="sum" id="sumDesp"></span></summary>
+        <div class="body">
+          <div id="listDesp"></div>
+          <button type="button" class="btn-add" data-add="transports">+ Añadir desplazamiento</button>
+        </div>
+      </details>
+
+      <details class="card" open>
+        <summary><span>Alojamientos</span><span class="sum" id="sumAloj"></span></summary>
+        <div class="body">
+          <div id="listAloj"></div>
+          <button type="button" class="btn-add" data-add="stays">+ Añadir alojamiento</button>
+        </div>
+      </details>
+
+      <details class="card" open>
+        <summary><span>Pendientes</span></summary>
+        <div class="body">
+          <div id="listPend"></div>
+          <button type="button" class="btn-add" data-add="todos">+ Añadir pendiente</button>
+        </div>
+      </details>
+
+      <details class="card" open>
+        <summary><span>Gastos de vida</span><span class="sum" id="sumVida"></span></summary>
+        <div class="body">
+          <div id="listVida"></div>
+          <div class="totals"><span>Gasto medio por día</span><span id="mediaVida"></span></div>
+          <button type="button" class="btn-add" data-add="expenses">+ Añadir gasto</button>
+        </div>
+      </details>
+
+      <details class="card" open>
+        <summary><span>Ideas</span></summary>
+        <div class="body">
+          <div class="seg" id="ideaFilters">
+            <button type="button" data-filter="todas" class="on">Todas</button>
+            <button type="button" data-filter="turismo">Turismo</button>
+            <button type="button" data-filter="restauracion">Restauración</button>
+          </div>
+          <div id="listIdeas"></div>
+          <button type="button" class="btn-add" data-add="ideas">+ Añadir idea</button>
+        </div>
+      </details>
+
+      <details class="card" open>
+        <summary><span>Notas del viaje</span></summary>
+        <div class="body">
+          <textarea id="tripNotes" placeholder="Lo que vais viendo, comiendo y disfrutando…"></textarea>
+        </div>
+      </details>
+
+      <details class="card" open>
+        <summary><span>Resumen de gastos</span></summary>
+        <div class="body">
+          <div class="res"><span>Desplazamientos</span><span id="resDesp"></span></div>
+          <div class="res"><span>Alojamientos</span><span id="resAloj"></span></div>
+          <div class="res"><span>Gastos de vida</span><span id="resVida"></span></div>
+          <div class="res total"><span>Total del viaje</span><span id="resTotal"></span></div>
+        </div>
+      </details>
+
+      <button type="button" class="btn-danger" id="deleteTrip">Eliminar viaje</button>
+    </main>
+  </section>
+
+  <!-- Diálogo: nuevo viaje -->
+  <dialog id="newTripDialog">
+    <form id="newTripForm">
+      <h2>Nuevo viaje</h2>
+      <input id="newTripName" type="text" placeholder="Nombre (ej. Europa noviembre)" maxlength="60" required aria-label="Nombre del viaje">
+      <div class="row2">
+        <label>Inicio<input id="newTripStart" type="date"></label>
+        <label>Regreso<input id="newTripEnd" type="date"></label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-secondary" id="cancelTrip">Cancelar</button>
+        <button type="submit" class="btn-primary">Crear</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
