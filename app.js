@@ -372,11 +372,30 @@ function updateTotals() {
 }
 
 // ---------- Pestañas y cabecera del viaje ----------
+// "Juntos" muestra Moverse, Dormir y Hacer a la vez; cualquier pestaña vuelve a un solo apartado
+const GROUP_TABS = ['desp', 'aloj', 'hacer'];
+let activeTab = 'desp';
+let grouped = false;
+
+function paintPanels() {
+  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', grouped ? GROUP_TABS.includes(b.dataset.tab) : b.dataset.tab === activeTab));
+  document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = grouped ? !GROUP_TABS.includes(p.dataset.panel) : p.dataset.panel !== activeTab; });
+  $('#juntosBtn').classList.toggle('on', grouped);
+  $('#juntosBtn').setAttribute('aria-pressed', String(grouped));
+}
+
 function showTab(tab) {
-  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
-  document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== tab; });
+  activeTab = tab;
+  grouped = false;
+  paintPanels();
   window.scrollTo(0, 0);
 }
+
+$('#juntosBtn').addEventListener('click', () => {
+  grouped = !grouped;
+  paintPanels();
+  window.scrollTo(0, 0);
+});
 
 function paintFilters() {
   document.querySelectorAll('#ideaFilters button').forEach((b) => b.classList.toggle('on', b.dataset.filter === ideaFilter));
