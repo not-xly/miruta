@@ -338,10 +338,18 @@ label {
 
 .field-label { color: var(--muted); font-size: 12px; }
 
+/* Gasto medio por día: fijo abajo del todo, solo visible en Gastos */
+[data-panel="vida"] { padding-bottom: 90px; }
+
 .totals {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(env(safe-area-inset-bottom) + 10px);
+  z-index: 4;
   display: flex;
   justify-content: space-between;
-  margin-top: 16px;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.12);
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--card);
