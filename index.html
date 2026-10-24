@@ -26,92 +26,119 @@
     <main id="tripList" class="trip-list"></main>
   </section>
 
-  <!-- Pantalla 2: detalle de un viaje -->
+  <!-- Pantalla 2: detalle de un viaje, un apartado a la vez -->
   <section id="tripView" class="view" hidden>
-    <header class="topbar">
-      <a href="#/" class="back">‹ Viajes</a>
-      <h1 id="tripTitle"></h1>
+    <header class="head">
+      <div class="topbar">
+        <a href="#/" class="back">‹ Viajes</a>
+        <h1 id="tripTitle"></h1>
+      </div>
+      <nav class="tabs" id="tabs">
+        <button type="button" data-tab="fechas">Fechas</button>
+        <button type="button" data-tab="desp">Desplazamientos</button>
+        <button type="button" data-tab="aloj">Alojamientos</button>
+        <button type="button" data-tab="pend">Pendientes</button>
+        <button type="button" data-tab="vida">Gastos</button>
+        <button type="button" data-tab="ideas">Ideas</button>
+        <button type="button" data-tab="notas">Notas</button>
+        <button type="button" data-tab="resumen">Resumen</button>
+      </nav>
     </header>
 
     <main class="content">
 
-      <details class="card" open>
-        <summary><span>Fechas</span><span class="sum" id="fHint"></span></summary>
-        <div class="body">
+      <section class="panel" data-panel="fechas">
+        <h2>Fechas</h2>
+        <div class="stack">
           <input id="fName" type="text" placeholder="Nombre del viaje" maxlength="60" aria-label="Nombre del viaje">
           <div class="row2">
             <label>Inicio<input id="fStart" type="date"></label>
             <label>Regreso<input id="fEnd" type="date"></label>
           </div>
+          <p class="muted" id="fHint"></p>
         </div>
-      </details>
+        <button type="button" class="btn-danger" id="deleteTrip">Eliminar viaje</button>
+      </section>
 
-      <details class="card" open>
-        <summary><span>Desplazamientos</span><span class="sum" id="sumDesp"></span></summary>
-        <div class="body">
-          <div id="listDesp"></div>
-          <button type="button" class="btn-add" data-add="transports">+ Añadir desplazamiento</button>
+      <section class="panel" data-panel="desp" hidden>
+        <div class="panel-head">
+          <h2>Desplazamientos</h2>
+          <span class="sum" id="sumDesp"></span>
+          <button type="button" class="btn-new" data-new="transports">+ Añadir</button>
         </div>
-      </details>
+        <div class="list" id="listDesp"></div>
+      </section>
 
-      <details class="card" open>
-        <summary><span>Alojamientos</span><span class="sum" id="sumAloj"></span></summary>
-        <div class="body">
-          <div id="listAloj"></div>
-          <button type="button" class="btn-add" data-add="stays">+ Añadir alojamiento</button>
+      <section class="panel" data-panel="aloj" hidden>
+        <div class="panel-head">
+          <h2>Alojamientos</h2>
+          <span class="sum" id="sumAloj"></span>
+          <button type="button" class="btn-new" data-new="stays">+ Añadir</button>
         </div>
-      </details>
+        <div class="list" id="listAloj"></div>
+      </section>
 
-      <details class="card" open>
-        <summary><span>Pendientes</span></summary>
-        <div class="body">
-          <div id="listPend"></div>
-          <button type="button" class="btn-add" data-add="todos">+ Añadir pendiente</button>
+      <section class="panel" data-panel="pend" hidden>
+        <div class="panel-head">
+          <h2>Pendientes</h2>
+          <button type="button" class="btn-new" data-new="todos">+ Añadir</button>
         </div>
-      </details>
+        <div class="list" id="listPend"></div>
+      </section>
 
-      <details class="card" open>
-        <summary><span>Gastos de vida</span><span class="sum" id="sumVida"></span></summary>
-        <div class="body">
-          <div id="listVida"></div>
-          <div class="totals"><span>Gasto medio por día</span><span id="mediaVida"></span></div>
-          <button type="button" class="btn-add" data-add="expenses">+ Añadir gasto</button>
+      <section class="panel" data-panel="vida" hidden>
+        <div class="panel-head">
+          <h2>Gastos de vida</h2>
+          <span class="sum" id="sumVida"></span>
+          <button type="button" class="btn-new" data-new="expenses">+ Añadir</button>
         </div>
-      </details>
+        <div class="list" id="listVida"></div>
+        <div class="totals"><span>Gasto medio por día</span><span id="mediaVida"></span></div>
+      </section>
 
-      <details class="card" open>
-        <summary><span>Ideas</span></summary>
-        <div class="body">
-          <div class="seg" id="ideaFilters">
-            <button type="button" data-filter="todas" class="on">Todas</button>
-            <button type="button" data-filter="turismo">Turismo</button>
-            <button type="button" data-filter="restauracion">Restauración</button>
-          </div>
-          <div id="listIdeas"></div>
-          <button type="button" class="btn-add" data-add="ideas">+ Añadir idea</button>
+      <section class="panel" data-panel="ideas" hidden>
+        <div class="panel-head">
+          <h2>Ideas</h2>
+          <button type="button" class="btn-new" data-new="ideas">+ Añadir</button>
         </div>
-      </details>
-
-      <details class="card" open>
-        <summary><span>Notas del viaje</span></summary>
-        <div class="body">
-          <textarea id="tripNotes" placeholder="Lo que vais viendo, comiendo y disfrutando…"></textarea>
+        <div class="seg" id="ideaFilters">
+          <button type="button" data-filter="todas" class="on">Todas</button>
+          <button type="button" data-filter="turismo">Turismo</button>
+          <button type="button" data-filter="restauracion">Restauración</button>
         </div>
-      </details>
+        <div class="list" id="listIdeas"></div>
+      </section>
 
-      <details class="card" open>
-        <summary><span>Resumen de gastos</span></summary>
-        <div class="body">
+      <section class="panel" data-panel="notas" hidden>
+        <h2>Notas del viaje</h2>
+        <textarea id="tripNotes" placeholder="Lo que vais viendo, comiendo y disfrutando…"></textarea>
+      </section>
+
+      <section class="panel" data-panel="resumen" hidden>
+        <h2>Resumen de gastos</h2>
+        <div class="list">
           <div class="res"><span>Desplazamientos</span><span id="resDesp"></span></div>
           <div class="res"><span>Alojamientos</span><span id="resAloj"></span></div>
           <div class="res"><span>Gastos de vida</span><span id="resVida"></span></div>
           <div class="res total"><span>Total del viaje</span><span id="resTotal"></span></div>
         </div>
-      </details>
-
-      <button type="button" class="btn-danger" id="deleteTrip">Eliminar viaje</button>
+      </section>
     </main>
   </section>
+
+  <!-- Ventana de introducción de datos: alta y edición -->
+  <dialog id="sheetDialog" class="sheet">
+    <form id="sheetForm">
+      <h2 id="sheetTitle"></h2>
+      <div id="sheetBody" class="sheet-body"></div>
+      <div class="sheet-foot">
+        <button type="button" class="btn-del" id="sheetDelete" hidden>Eliminar</button>
+        <span class="grow"></span>
+        <button type="button" class="btn-secondary" id="sheetCancel">Cancelar</button>
+        <button type="submit" class="btn-primary">Guardar</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- Diálogo: nuevo viaje -->
   <dialog id="newTripDialog">
