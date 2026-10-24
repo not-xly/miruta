@@ -85,6 +85,40 @@ h2 { margin: 0 0 4px; font-size: 18px; }
 
 .juntos.on { background: var(--accent); color: #fff; }
 
+.icon-btn {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--tab);
+  color: var(--text);
+}
+
+/* Semanas del viaje */
+.wk { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; margin-bottom: 3px; }
+
+.wk-head span { color: var(--muted); font-size: 11px; text-align: center; padding: 2px 0; }
+
+.wk-cell {
+  min-height: 40px;
+  padding: 4px 2px;
+  border-radius: 8px;
+  background: var(--field);
+  text-align: center;
+  font-size: 12px;
+}
+
+.wk-cell .n { display: block; }
+.wk-cell.we .n { font-weight: 600; }
+.wk-cell.out { opacity: 0.35; }
+.wk-cell.in { background: rgba(10, 132, 255, 0.15); }
+.wk-cell.edge { background: var(--accent); color: #fff; }
+
 .title { flex: 1; min-width: 0; }
 
 .sub { margin: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

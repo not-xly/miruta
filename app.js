@@ -560,6 +560,41 @@ $('#ideaFilters').addEventListener('click', (e) => {
   renderSection('ideas');
 });
 
+// ---------- Semanas del viaje (calendario de lunes a domingo) ----------
+const isoFromDayNumber = (n) => new Date(n * 86400000).toISOString().slice(0, 10);
+const mondayIndex = (iso) => (new Date(toDayNumber(iso) * 86400000).getUTCDay() + 6) % 7;
+
+function tripWeeksHtml(t) {
+  if (!t.start || !t.end || daysBetween(t.start, t.end) < 0) {
+    return '<p class="muted">Pon las fechas del viaje para verlo en el calendario.</p>';
+  }
+  const first = toDayNumber(t.start) - mondayIndex(t.start);
+  const last = toDayNumber(t.end) + (6 - mondayIndex(t.end));
+  const head = `<div class="wk wk-head">${['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => `<span>${d}</span>`).join('')}</div>`;
+  const weeks = [];
+  for (let week = first; week <= last; week += 7) {
+    const cells = [];
+    for (let i = 0; i < 7; i++) {
+      const iso = isoFromDayNumber(week + i);
+      const [, m, d] = iso.split('-').map(Number);
+      const inTrip = iso >= t.start && iso <= t.end;
+      const edge = iso === t.start || iso === t.end;
+      const classes = ['wk-cell', inTrip ? 'in' : 'out', i >= 5 ? 'we' : '', edge ? 'edge' : ''];
+      const label = d === 1 || iso === t.start ? `${d} ${MONTHS_SHORT[m - 1]}` : `${d}`;
+      cells.push(`<div class="${classes.filter(Boolean).join(' ')}"><span class="n">${label}</span></div>`);
+    }
+    weeks.push(`<div class="wk">${cells.join('')}</div>`);
+  }
+  return head + weeks.join('');
+}
+
+$('#weeksBtn').addEventListener('click', () => {
+  $('#weeksBody').innerHTML = tripWeeksHtml(current);
+  $('#weeksDialog').showModal();
+});
+
+$('#weeksClose').addEventListener('click', () => $('#weeksDialog').close());
+
 $('#tripNotes').addEventListener('input', (e) => {
   current.notes = e.target.value;
   save();
