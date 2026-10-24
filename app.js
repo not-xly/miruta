@@ -183,9 +183,9 @@ $('#tripForm').addEventListener('submit', (e) => {
     $('#tripDialog').close();
     renderList();
   } else {
-    const trip = createTrip(name, range.checkin, range.checkout);
+    createTrip(name, range.checkin, range.checkout);
     $('#tripDialog').close();
-    location.hash = `#/trip/${trip.id}`;
+    renderList();
   }
 });
 
